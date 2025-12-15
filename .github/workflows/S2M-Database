@@ -1,0 +1,99 @@
+  name: S2M BKK Database
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Excel
+        run: |
+          curl -L "https://s2m.sharepoint.com/:x:/r/sites/Internal/Documents/SDR%20New%20Metrics%20Reporting/S2M%20Bangkok%20Phone%20Numbers%20List.xlsx?d=w88f5468a10f74360b7115b9b6402667e&csf=1&web=1&e=pGpet3" -o data.xlsx
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python deps
+        run: |
+          pip install pandas openpyxl
+
+      - name: Convert Excel to JSON
+        run: |
+          python - << 'EOF'
+          import pandas as pd, json, os
+          from datetime import datetime, timezone
+
+          df = pd.read_excel("data.xlsx", dtype=str).fillna("")
+          os.makedirs("docs", exist_ok=True)
+
+          with open("docs/data.json", "w", encoding="utf-8") as f:
+              json.dump({
+                  "updated_at": datetime.now(timezone.utc).isoformat(),
+                  "headers": list(df.columns),
+                  "rows": df.to_dict(orient="records")
+              }, f, ensure_ascii=False)
+          EOF
+
+      - name: Create Website
+        run: |
+          cat << 'EOF' > docs/index.html
+          <!doctype html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Database Search</title>
+            <style>
+              body{font-family:Arial;background:#fafafa;margin:0}
+              .box{max-width:1100px;margin:40px auto;padding:16px}
+              input{width:100%;padding:12px;font-size:16px}
+              .card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:12px;margin:10px 0}
+              .k{color:#777;font-size:12px}
+              .v{font-size:14px}
+            </style>
+          </head>
+          <body>
+            <div class="box">
+              <h1>Search database</h1>
+              <input id="q" placeholder="Search client, company, country..." />
+              <p id="info"></p>
+              <div id="res"></div>
+            </div>
+
+            <script>
+              fetch("data.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{
+                const rows=d.rows, h=d.headers
+                const q=document.getElementById("q"), res=document.getElementById("res"), info=document.getElementById("info")
+                info.innerText="Last update: "+new Date(d.updated_at).toLocaleString()
+
+                q.oninput=()=>{
+                  const v=q.value.toLowerCase()
+                  res.innerHTML=""
+                  rows.filter(r=>h.map(k=>r[k]).join(" ").toLowerCase().includes(v))
+                  .slice(0,50).forEach(r=>{
+                    let html="<div class=card>"
+                    h.forEach(k=>html+=`<div class=k>${k}</div><div class=v>${r[k]}</div>`)
+                    html+="</div>"
+                    res.innerHTML+=html
+                  })
+                }
+              })
+            </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Commit & Push
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add docs
+          git commit -m "Auto update Excel search site" || true
+          git push
