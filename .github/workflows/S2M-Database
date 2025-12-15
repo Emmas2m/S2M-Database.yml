@@ -14,7 +14,7 @@ jobs:
 
       - name: Download Excel
         run: |
-          curl -L "https://s2m.sharepoint.com/:x:/r/sites/Internal/Documents/SDR%20New%20Metrics%20Reporting/S2M%20Bangkok%20Phone%20Numbers%20List.xlsx?d=w88f5468a10f74360b7115b9b6402667e&csf=1&web=1&e=pGpet3" -o data.xlsx
+          curl -L "https://s2m.sharepoint.com/:x:/r/sites/Internal/Documents/SDR%20New%20Metrics%20Reporting/S2M%20Bangkok%20Phone%20Numbers%20List.xlsx?d=w88f5468a10f74360b7115b9b6402667e&download=1" -o data.xlsx
 
       - name: Setup Python
         uses: actions/setup-python@v5
